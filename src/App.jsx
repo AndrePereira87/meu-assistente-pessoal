@@ -1,14 +1,27 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Dumbbell, Wallet, Brain, Plus, Flame, Activity, CheckCircle, Coins, X, Camera, Receipt, PenLine, ChevronLeft, ArrowUpCircle, ArrowDownCircle, CalendarClock } from 'lucide-react';
+import { Home, Dumbbell, Wallet, Brain, Plus, Flame, Activity, CheckCircle, Coins, X, Camera, Receipt, PenLine, ChevronLeft, ArrowUpCircle, ArrowDownCircle, CalendarClock, LogOut } from 'lucide-react';
+
+// IMPORTAÇÃO APENAS DO CLIENTE PURO (Sem UI externa instável)
+import { supabase } from './supabaseClient';
 
 // --- ECRÃ: RESUMO ---
 const Resumo = () => {
   return (
     <div className="p-6 space-y-6 max-w-md mx-auto">
-      <div className="pt-4 pb-2">
-        <h1 className="text-3xl font-extrabold text-gray-900">Hoje</h1>
-        <p className="text-gray-500 font-medium">Quarta-feira, 20 de Maio</p>
+      <div className="pt-4 pb-2 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900">Hoje</h1>
+          <p className="text-gray-500 font-medium">Quarta-feira, 20 de Maio</p>
+        </div>
+        {/* BOTÃO DE LOGOUT */}
+        <button 
+          onClick={() => supabase.auth.signOut()} 
+          className="bg-gray-100 p-2 rounded-full text-gray-500 hover:text-red-500 transition-colors"
+          title="Terminar Sessão"
+        >
+          <LogOut size={20} />
+        </button>
       </div>
 
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
@@ -246,6 +259,22 @@ const Carteira = () => {
                 <p className="text-[10px] text-gray-400">Hoje</p>
               </div>
             </div>
+
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
+                  <Activity size={18} />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-800 text-sm">Prozis</p>
+                  <p className="text-xs font-semibold text-blue-500">Saúde/Desporto</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-gray-900">- € 24,99</p>
+                <p className="text-[10px] text-gray-400">Ontem</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -258,13 +287,11 @@ const Carteira = () => {
 const Foco = () => {
   return (
     <div className="p-6 space-y-6 max-w-md mx-auto">
-      {/* Cabeçalho */}
       <div className="pt-4 pb-2">
         <h1 className="text-3xl font-extrabold text-gray-900">Foco & Projetos</h1>
-        <p className="text-gray-500 font-medium">O teu centro de produtividade</p>
+        <p className="text-gray-500 font-medium">O teu centro de productivity</p>
       </div>
 
-      {/* Destaque Académico / Aulas */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -292,7 +319,6 @@ const Foco = () => {
         </div>
       </div>
 
-      {/* Projetos & Trabalho */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
         <h2 className="text-lg font-bold text-gray-800 mb-4">Desenvolvimento</h2>
         
@@ -364,12 +390,22 @@ function BottomNav({ onOpenAction }) {
   );
 }
 
-// --- APP PRINCIPAL (Estado e Modais) ---
+// --- APP PRINCIPAL (Estado, Modais e LOGIN) ---
 export default function App() {
+  // ESTADO DE SESSÃO DO SUPABASE
+  const [session, setSession] = useState(null);
+
+  // Estados do Formulário de Login Customizado
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Estados dos Modais
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState(null);
   
-  // Estado para Finanças
   const [financeType, setFinanceType] = useState('saida');
   const [financeValue, setFinanceValue] = useState('');
   const [financeCategory, setFinanceCategory] = useState('');
@@ -378,7 +414,6 @@ export default function App() {
   const [recurringDate, setRecurringDate] = useState('');
   const [isConfirmingAI, setIsConfirmingAI] = useState(false);
 
-  // Estado para Refeição
   const [mealMode, setMealMode] = useState(null); 
   
   const cameraInputRef = useRef(null);
@@ -389,6 +424,99 @@ export default function App() {
   const [inputText, setInputText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // EFEITO DO SUPABASE PARA VERIFICAR LOGIN
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Lógica de Autenticação Ativa (Formulário Seguro)
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthLoading(true);
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setAuthError(error.message);
+      else alert('Conta criada! Verifica o teu e-mail para confirmar a ativação.');
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setAuthError(error.message);
+    }
+    setAuthLoading(false);
+  };
+
+  // SE NÃO HOUVER SESSÃO, MOSTRA O ECRÃ DE LOGIN PERSONALIZADO
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+          <div className="text-center mb-8">
+            <div className="bg-blue-600 text-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
+              <Brain size={32} />
+            </div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Assistente</h1>
+            <p className="text-gray-500 font-medium mt-1">Nutrição, Treino e Finanças</p>
+          </div>
+
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1 pl-1">E-mail</label>
+              <input 
+                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="exemplo@email.com"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1 pl-1">Palavra-passe</label>
+              <input 
+                type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            {authError && (
+              <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-semibold text-center">
+                {authError === 'Invalid login credentials' ? 'Dados de login inválidos.' : authError}
+              </div>
+            )}
+
+            <button 
+              type="submit" disabled={authLoading}
+              className="w-full py-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition active:scale-[0.99] flex justify-center items-center"
+            >
+              {authLoading ? 'A processar...' : isSignUp ? 'Criar Conta Gratuita' : 'Entrar na Aplicação'}
+            </button>
+          </form>
+
+          <div className="text-center mt-6">
+            <button 
+              onClick={() => { setIsSignUp(!isSignUp); setAuthError(''); }}
+              className="text-sm font-semibold text-blue-600 hover:underline"
+            >
+              {isSignUp ? 'Já tens conta? Faz login aqui' : 'Não tens conta? Cria uma gratuitamente'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- O RESTO DA APP SÓ RODA SE HOUVER SESSÃO ---
+
   const resetModal = () => {
     setPhotoPreview(null);
     setMacroPhotos([]); 
@@ -396,8 +524,6 @@ export default function App() {
     setIsAnalyzing(false);
     setMealMode(null);
     setCurrentAction(null);
-    
-    // Reset Finanças
     setFinanceType('saida');
     setFinanceValue('');
     setFinanceCategory('');
@@ -409,7 +535,6 @@ export default function App() {
   const openActionMenu = (actionName) => {
     setCurrentAction(actionName);
     setIsMenuOpen(false);
-    
     if (['Finanças', 'Nota Rápida'].includes(actionName)) {
       setPhotoPreview('no-photo'); 
     } else {
@@ -429,7 +554,6 @@ export default function App() {
     event.target.value = '';
   };
 
-  // Função para gerir as categorias
   const handleCategoryChange = (e) => {
     const value = e.target.value;
     if (value === 'new') {
@@ -445,9 +569,7 @@ export default function App() {
     }
   };
 
-  // Função principal ao submeter a finança
   const handleFinanceSubmit = () => {
-    // Se tem foto e ainda não passou pela confirmação da IA, simulamos a leitura
     if (photoPreview !== 'no-photo' && !isConfirmingAI) {
       setIsAnalyzing(true);
       setTimeout(() => {
@@ -455,7 +577,6 @@ export default function App() {
         setIsConfirmingAI(true);
       }, 1500);
     } else {
-      // Registo normal ou após confirmação
       alert(`Registado com sucesso!\nValor: €${financeValue || 'N/A'}\nCategoria: ${financeCategory || 'N/A'}`);
       resetModal();
     }
@@ -602,7 +723,6 @@ export default function App() {
                   // --- LÓGICA DE FINANÇAS ---
                   <div className="p-5 flex flex-col gap-4">
                     
-                    {/* Se estamos na fase de confirmar a IA, mostramos o Ecrã de Confirmação */}
                     {isConfirmingAI ? (
                       <div className="animate-in fade-in slide-in-from-right-4">
                         <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 text-center mb-6">
@@ -627,22 +747,15 @@ export default function App() {
                         </div>
 
                         <div className="flex gap-3">
-                           <button 
-                             onClick={() => setIsConfirmingAI(false)} 
-                             className="flex-1 py-4 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
-                           >
+                           <button onClick={() => setIsConfirmingAI(false)} className="flex-1 py-4 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
                              Editar
                            </button>
-                           <button 
-                             onClick={handleFinanceSubmit} 
-                             className="flex-1 py-4 rounded-xl font-bold text-white bg-emerald-600 active:scale-95 transition"
-                           >
+                           <button onClick={handleFinanceSubmit} className="flex-1 py-4 rounded-xl font-bold text-white bg-emerald-600 active:scale-95 transition">
                              Confirmar
                            </button>
                         </div>
                       </div>
                     ) : (
-                      // Formulário Normal
                       <>
                         <div className="flex bg-gray-100 p-1 rounded-xl">
                           <button onClick={() => setFinanceType('entrada')} className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${financeType === 'entrada' ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-500'}`}>
@@ -653,7 +766,6 @@ export default function App() {
                           </button>
                         </div>
 
-                        {/* Campos de Valor e Categoria */}
                         <div className="flex gap-3">
                           <div className="relative flex-1">
                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">€</span>
@@ -679,7 +791,6 @@ export default function App() {
                           </select>
                         </div>
 
-                        {/* Pagamento Recorrente */}
                         <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
                           <input 
                             type="checkbox" 
@@ -703,7 +814,6 @@ export default function App() {
                           </div>
                         )}
 
-                        {/* Talão */}
                         {photoPreview === 'no-photo' ? (
                           <button 
                             onClick={() => cameraInputRef.current?.click()}
