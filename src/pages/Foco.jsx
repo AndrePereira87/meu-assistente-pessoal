@@ -1,6 +1,33 @@
-import { Brain, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Brain, CheckCircle, PenLine } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export const Foco = () => {
+  const [notas, setNotas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNotas = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from('notas_rapidas')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('data_nota', { ascending: false }); // Do mais recente para o mais antigo
+
+      if (!error && data) {
+        setNotas(data);
+      } else {
+        console.error("Erro a carregar notas:", error);
+      }
+      setLoading(false);
+    };
+
+    fetchNotas();
+  }, []);
+
   return (
     <div className="p-6 space-y-6 max-w-md mx-auto">
       <div className="pt-4 pb-2">
@@ -24,23 +51,38 @@ export const Foco = () => {
         </div>
       </div>
 
+      {/* --- SECÇÃO DINÂMICA: NOTAS RÁPIDAS --- */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">Desenvolvimento</h2>
-        <div className="space-y-5">
-          <div className="border-b border-gray-50 pb-4">
-            <div className="flex justify-between items-center mb-2"><p className="font-bold text-gray-800 text-sm">CRM Agência de Viagens</p><span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-md">Em Progresso</span></div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: '65%' }}></div></div>
-          </div>
-          <div className="border-b border-gray-50 pb-4">
-            <div className="flex justify-between items-center mb-2"><p className="font-bold text-gray-800 text-sm">Assistente Pessoal PWA</p><span className="text-xs font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-md">Fase: UI/UX</span></div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="bg-blue-500 h-1.5 rounded-full" style={{ width: '85%' }}></div></div>
-          </div>
-          <div>
-            <div className="flex justify-between items-center mb-2"><p className="font-bold text-gray-800 text-sm">Estudos WebGL / C++</p><span className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-md">Pausado</span></div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5"><div className="bg-orange-400 h-1.5 rounded-full" style={{ width: '25%' }}></div></div>
-          </div>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+            <PenLine size={20} className="text-yellow-500" />
+            Notas Rápidas
+          </h2>
+          <span className="text-xs font-bold bg-yellow-50 text-yellow-600 px-2 py-1 rounded-md">{notas.length} notas</span>
+        </div>
+
+        <div className="space-y-3">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-4">A carregar notas...</p>
+          ) : notas.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Não tens notas guardadas. Usa o botão + para adicionar.</p>
+          ) : (
+            notas.map((nota) => {
+              const dataFormatada = new Date(nota.data_nota).toLocaleDateString('pt-PT', { 
+                day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+              });
+              
+              return (
+                <div key={nota.id} className="p-4 bg-yellow-50/50 rounded-2xl border border-yellow-100 shadow-sm">
+                  <p className="text-sm text-gray-800 font-medium whitespace-pre-wrap">{nota.descricao}</p>
+                  <p className="text-[10px] text-yellow-600/60 font-bold mt-2 text-right uppercase tracking-wider">{dataFormatada}</p>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
+
       <div className="h-10"></div>
     </div>
   );

@@ -1,6 +1,36 @@
+import { useState, useEffect } from 'react';
 import { Activity, Dumbbell } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export const Corpo = () => {
+  const [treinos, setTreinos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTreinos = async () => {
+      // 1. Descobrir quem é o utilizador logado
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      // 2. Ir à tabela buscar os treinos desse utilizador
+      const { data, error } = await supabase
+        .from('historico_treinos')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('data_treino', { ascending: false }) // CORRIGIDO PARA O NOME REAL DA COLUNA
+        .limit(5); // Mostrar apenas os últimos 5 recordes
+
+      if (!error && data) {
+        setTreinos(data);
+      } else {
+        console.error("Erro a carregar treinos:", error);
+      }
+      setLoading(false);
+    };
+
+    fetchTreinos();
+  }, []);
+
   return (
     <div className="p-6 space-y-6 max-w-md mx-auto">
       <div className="pt-4 pb-2">
@@ -32,23 +62,39 @@ export const Corpo = () => {
         </div>
       </div>
 
+      {/* --- SECÇÃO DINÂMICA: LIGADA À BASE DE DADOS --- */}
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
         <h2 className="text-lg font-bold text-gray-800 mb-4">Últimas Cargas de Topo</h2>
+        
         <div className="space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-gray-50">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-500"><Dumbbell size={18} /></div>
-              <div><p className="font-bold text-gray-800 text-sm">Leg Press</p><p className="text-xs text-gray-500">4 séries</p></div>
-            </div>
-            <div className="text-right"><p className="font-bold text-gray-900">120 kg</p><p className="text-[10px] text-blue-500 font-bold uppercase mt-1">Há 2 dias</p></div>
-          </div>
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-500"><Dumbbell size={18} /></div>
-              <div><p className="font-bold text-gray-800 text-sm">Supino Reto</p><p className="text-xs text-gray-500">3 séries</p></div>
-            </div>
-            <div className="text-right"><p className="font-bold text-gray-900">80 kg</p><p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Há 4 dias</p></div>
-          </div>
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-4">A carregar treinos...</p>
+          ) : treinos.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-4">Ainda não registaste nenhum recorde.</p>
+          ) : (
+            treinos.map((treino) => {
+              // Formatar a data para ser mais legível
+              const dataTreino = new Date(treino.data_treino).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' });
+              
+              return (
+                <div key={treino.id} className="flex justify-between items-center pb-3 border-b border-gray-50 last:border-0">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
+                      <Dumbbell size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-800 text-sm capitalize">{treino.exercicio}</p>
+                      <p className="text-xs text-gray-500 font-medium">{treino.series} séries</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900 text-lg">{treino.carga_topo} kg</p>
+                    <p className="text-[10px] text-blue-500 font-bold uppercase mt-1">{dataTreino}</p>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
       <div className="h-10"></div>
