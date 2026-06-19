@@ -118,23 +118,6 @@ export default function App() {
     setAuthLoading(false);
   };
 
-  if (!session) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-xl border border-gray-100">
-          <div className="text-center mb-8"><div className="bg-blue-600 text-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"><Brain size={32} /></div><h1 className="text-3xl font-extrabold text-gray-900">Assistente</h1><p className="text-gray-500 font-medium mt-1">Nutrição, Treino e Finanças</p></div>
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1 pl-1">E-mail</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none" /></div>
-            <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1 pl-1">Palavra-passe</label><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none" /></div>
-            {authError && <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold text-center">{authError}</div>}
-            <button type="submit" disabled={authLoading} className="w-full py-4 rounded-xl font-bold text-white bg-blue-600">{authLoading ? 'A processar...' : isSignUp ? 'Criar Conta' : 'Entrar'}</button>
-          </form>
-          <div className="text-center mt-6"><button onClick={() => { setIsSignUp(!isSignUp); setAuthError(''); }} className="text-sm font-semibold text-blue-600">{isSignUp ? 'Já tens conta? Login' : 'Criar uma conta'}</button></div>
-        </div>
-      </div>
-    );
-  }
-
   const resetModal = () => {
     setPhotoPreview(null); setMacroPhotos([]); setInputText(""); setExercicio(""); setSeries(""); setCargaTopo("");
     setIsAnalyzing(false); setMealMode(null); setCurrentAction(null); setFinanceType('saida');
@@ -147,6 +130,22 @@ export default function App() {
     else if (cameraInputRef.current) cameraInputRef.current.click();
   };
 
+  // --- FUNÇÃO RESTAURADA QUE EVITA O ECRÃ BRANCO ---
+  const handleCategoryChange = (e) => {
+    const value = e.target.value;
+    if (value === 'new') {
+      const novaCategoria = prompt("Qual o nome da nova categoria?");
+      if (novaCategoria && novaCategoria.trim() !== '') {
+        setCustomCategories([...customCategories, novaCategoria]);
+        setFinanceCategory(novaCategoria);
+      } else {
+        setFinanceCategory('');
+      }
+    } else {
+      setFinanceCategory(value);
+    }
+  };
+
   const handleFinanceSubmit = async () => {
     if (photoPreview !== 'no-photo' && !isConfirmingAI) {
       setIsAnalyzing(true); setTimeout(() => { setIsAnalyzing(false); setIsConfirmingAI(true); }, 1500);
@@ -155,7 +154,7 @@ export default function App() {
       setIsAnalyzing(true);
       const { error } = await supabase.from('movimentos_financeiros').insert([{ user_id: session.user.id, tipo: financeType, valor: parseFloat(financeValue), categoria: financeCategory, recorrente: isRecurring, data_recorrencia: isRecurring && recurringDate ? recurringDate : null }]);
       setIsAnalyzing(false);
-      if (error) alert("Erro: " + error.message); else { alert("Guardado!"); resetModal(); fetchFinancas(); }
+      if (error) alert("Erro: " + error.message); else { alert("Guardado com sucesso!"); resetModal(); fetchFinancas(); }
     }
   };
 
@@ -173,6 +172,23 @@ export default function App() {
     setIsAnalyzing(false);
     if (submitError) alert(`Erro: ` + submitError.message); else { alert("Guardado com sucesso!"); resetModal(); }
   };
+
+  if (!session) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-6">
+        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-xl border border-gray-100">
+          <div className="text-center mb-8"><div className="bg-blue-600 text-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"><Brain size={32} /></div><h1 className="text-3xl font-extrabold text-gray-900">Assistente</h1><p className="text-gray-500 font-medium mt-1">Nutrição, Treino e Finanças</p></div>
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1 pl-1">E-mail</label><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none" /></div>
+            <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1 pl-1">Palavra-passe</label><input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 outline-none" /></div>
+            {authError && <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-semibold text-center">{authError}</div>}
+            <button type="submit" disabled={authLoading} className="w-full py-4 rounded-xl font-bold text-white bg-blue-600">{authLoading ? 'A processar...' : isSignUp ? 'Criar Conta' : 'Entrar'}</button>
+          </form>
+          <div className="text-center mt-6"><button onClick={() => { setIsSignUp(!isSignUp); setAuthError(''); }} className="text-sm font-semibold text-blue-600">{isSignUp ? 'Já tens conta? Login' : 'Criar uma conta'}</button></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>
