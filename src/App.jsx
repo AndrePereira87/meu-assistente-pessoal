@@ -289,7 +289,7 @@ const Foco = () => {
     <div className="p-6 space-y-6 max-w-md mx-auto">
       <div className="pt-4 pb-2">
         <h1 className="text-3xl font-extrabold text-gray-900">Foco & Projetos</h1>
-        <p className="text-gray-500 font-medium">O teu centro de productivity</p>
+        <p className="text-gray-500 font-medium">O teu centro de produtividade</p>
       </div>
 
       <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
@@ -569,7 +569,8 @@ export default function App() {
     }
   };
 
-  const handleFinanceSubmit = () => {
+  // --- A NOVA FUNÇÃO DE GRAVAÇÃO NA BASE DE DADOS ---
+  const handleFinanceSubmit = async () => {
     if (photoPreview !== 'no-photo' && !isConfirmingAI) {
       setIsAnalyzing(true);
       setTimeout(() => {
@@ -577,8 +578,36 @@ export default function App() {
         setIsConfirmingAI(true);
       }, 1500);
     } else {
-      alert(`Registado com sucesso!\nValor: €${financeValue || 'N/A'}\nCategoria: ${financeCategory || 'N/A'}`);
-      resetModal();
+      
+      if (!financeValue || !financeCategory) {
+        alert("Por favor, preenche o valor e a categoria.");
+        return;
+      }
+
+      setIsAnalyzing(true); // Mostrar loading no botão
+      
+      const { error } = await supabase
+        .from('movimentos_financeiros')
+        .insert([
+          {
+            user_id: session.user.id,
+            tipo: financeType,
+            valor: parseFloat(financeValue),
+            categoria: financeCategory,
+            recorrente: isRecurring,
+            data_recorrencia: isRecurring && recurringDate ? recurringDate : null
+          }
+        ]);
+
+      setIsAnalyzing(false);
+
+      if (error) {
+        console.error("Erro do Supabase:", error);
+        alert("Erro ao guardar na nuvem: " + error.message);
+      } else {
+        alert(`Guardado na Base de Dados!\nTipo: ${financeType.toUpperCase()}\nValor: €${financeValue}\nCategoria: ${financeCategory}`);
+        resetModal();
+      }
     }
   };
 
